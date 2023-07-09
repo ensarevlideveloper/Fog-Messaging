@@ -47,6 +47,8 @@ for sequence in itertools.count():
             if reply[0] == request and reply[-1] == SIGNAL_EOL:
                 logging.info("Temperature (%s) for location (%s)", reply[-2].decode(), reply[0].decode())
                 retries_left = REQUEST_RETRIES
+
+                client.send_multipart([SIGNAL_ACK, reply[0]])
                 break
             else:
                 logging.error("Malformed reply from server: %s", reply)

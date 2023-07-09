@@ -9,6 +9,7 @@ HEARTBEAT_INTERVAL = 1.0   # Seconds
 #  Paranoid Pirate Protocol constants
 PPP_READY = b"\x01"      # Signals worker is ready
 PPP_HEARTBEAT = b"\x02"  # Signals worker heartbeat
+SIGNAL_ACK = b"\x04" #Signals Acknowledgement
 
 
 class Worker(object):
@@ -74,12 +75,15 @@ while True:
         address = frames[0]
         workers.ready(Worker(address))
 
+        print("Received from server:" + str(frames))
+
         # Validate control message, or return reply to client
         msg = frames[1:]
         if len(msg) == 1:
             if msg[0] not in (PPP_READY, PPP_HEARTBEAT):
                 print("E: Invalid message from worker: %s" % msg)
         else:
+            print("Sending to client:" + str(frames))
             frontend.send_multipart(msg)
 
         # Send heartbeats to idle workers if it's time

@@ -14,10 +14,13 @@ HEARTBEAT_LIVENESS = 3
 HEARTBEAT_INTERVAL = 1
 INTERVAL_INIT = 1
 INTERVAL_MAX = 32
+ACK_RETRIES = 3
+ACK_TIMEOUT = 2500
 
 #  Paranoid Pirate Protocol constants
 PPP_READY = b"\x01"      # Signals worker is ready
 PPP_HEARTBEAT = b"\x02"  # Signals worker heartbeat
+SIGNAL_ACK = b"\x04" #Signals Acknowledgement
 
 #EOL
 SIGNAL_EOL = b"\x03"  # Signals END OF LINE
@@ -45,8 +48,19 @@ heartbeat_at = time.time() + HEARTBEAT_INTERVAL
 
 worker = worker_socket(context, poller)
 cycles = 0
+not_confirmed_requests = {}
 while True:
     socks = dict(poller.poll(HEARTBEAT_INTERVAL * 1000))
+
+    # check in the queue that we don't have any not replied requests
+    print(not_confirmed_requests)
+    print(time.time())
+    for request_addrs in not_confirmed_requests:
+        (retries, old_timestamp, frames) = not_confirmed_requests[request_addrs]
+        if (time.time() - old_timestamp > ACK_TIMEOUT) and retries < ACK_RETRIES:
+            logging.info("Retrying reply for (%s), (%s)d time", request_addrs, str(retries))
+            not_confirmed_requests[request_addrs] = (retries + 1, time.time(), frames)
+            worker.send_multipart(frames)
 
     # Handle worker activity on backend
     if socks.get(worker) == zmq.POLLIN:
@@ -68,16 +82,24 @@ while True:
                 print("I: Simulating CPU overload")
                 time.sleep(3)
             '''
-            logging.info("Client requests temperature for location (%s)", str(frames[-1].decode()))
+            address = str(frames[-1].decode())
+            logging.info("Client requests temperature for location (%s)", address)
             temperature = fake.random_int(min=-30, max=55)
             frames.append(str(temperature).encode())
             frames.append(SIGNAL_EOL)
             worker.send_multipart(frames)
+            not_confirmed_requests[address] = (0, time.time(), frames)
             liveness = HEARTBEAT_LIVENESS
             time.sleep(1)  # Do some heavy work
         elif len(frames) == 1 and frames[0] == PPP_HEARTBEAT:
             print("I: Queue heartbeat")
             liveness = HEARTBEAT_LIVENESS
+
+        elif frames[-2] == SIGNAL_ACK:
+            address = frames[-1].decode()
+            print("ACK got for ", str(address))
+            not_confirmed_requests.pop(address)
+
         else:
             print("E: Invalid message: %s" % frames)
         interval = INTERVAL_INIT
