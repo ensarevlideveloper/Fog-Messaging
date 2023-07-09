@@ -97,6 +97,8 @@ while True:
         print("Received from client:"+str(frames))
         if not frames:
             break
+        if frames[-2] == SIGNAL_ACK:
+            frontend.send_multipart(frames)
 
         frames.insert(0, workers.next())
         print("Sending to worker:"+str(frames))

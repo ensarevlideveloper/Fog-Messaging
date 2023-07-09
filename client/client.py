@@ -3,6 +3,7 @@ import logging
 import sys
 #ZeroMQ
 import zmq
+import time
 #Fake library for data generation
 from faker import Faker
 from faker.providers import geo
@@ -49,6 +50,7 @@ for sequence in itertools.count():
                 retries_left = REQUEST_RETRIES
 
                 client.send_multipart([SIGNAL_ACK, reply[0]])
+                client.recv_multipart()
                 break
             else:
                 logging.error("Malformed reply from server: %s", reply)
