@@ -103,17 +103,17 @@ while True:
 
         elif frames[-2] == SIGNAL_ACK:
             address = frames[-1].decode()
-            logging.info("ACK got for ", str(address))
+            logging.info("ACK got for: %s", address)
             not_confirmed_requests.pop(address)
 
         else:
-            logging.info("E: Invalid message: %s" % frames)
+            logging.info("E: Invalid message: %s", frames)
         interval = INTERVAL_INIT
     else:
         liveness -= 1
         if liveness == 0:
             logging.info("W: Heartbeat failure, can't reach queue")
-            logging.info("W: Reconnecting in %0.2fs..." % interval)
+            logging.info("W: Reconnecting in %0.2fs...", interval)
             time.sleep(interval)
 
             if interval < INTERVAL_MAX:

@@ -78,13 +78,13 @@ while True:
         address = frames[0]
         workers.ready(Worker(address))
 
-        logging.info("Received from server:" + str(frames[0]))
+        logging.info("Received from server:" + str(frames[0].decode()))
 
         # Validate control message, or return reply to client
         msg = frames[1:]
         if len(msg) == 1:
             if msg[0] not in (PPP_READY, PPP_HEARTBEAT):
-                logging.info("E: Invalid message from worker: %s" % msg)
+                logging.info("E: Invalid message from worker: %s", msg)
         else:
             logging.info("Sending to client:" + str(frames[0]))
             frontend.send_multipart(msg)
@@ -97,14 +97,14 @@ while True:
             heartbeat_at = time.time() + HEARTBEAT_INTERVAL
     if socks.get(frontend) == zmq.POLLIN:
         frames = frontend.recv_multipart()
-        logging.info("Received from client:"+str(frames[0]))
+        logging.info("Received from client")
         if not frames:
             break
         if frames[-2] == SIGNAL_ACK:
             frontend.send_multipart(frames)
 
         frames.insert(0, workers.next())
-        logging.info("Sending to worker:"+str(frames[0]))
+        logging.info("Sending to worker:"+str(frames[0].decode()))
         backend.send_multipart(frames)
 
 
