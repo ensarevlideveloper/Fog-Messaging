@@ -8,7 +8,9 @@
 4. When disconnected and/or crashed, the local and Cloud component have to keep working while preserving data for later transmission. Upon reconnection, the queued data needs to be delivered.
 ---
 ### Code documentation
-We decided to implement Paranoid Pirate Pattern in Python with the help of ZeroMQ library. (image) As a scenario we decided to have edge temperature devices (smart watches for example) that send messages to server with their location and get reply with exact weather forecast temperature. 
+We decided to implement Paranoid Pirate Pattern in Python with the help of ZeroMQ library.
+![](resources/PPP.png)
+As a scenario we decided to have edge temperature devices (smart watches for example) that send messages to server with their location and get reply with exact weather forecast temperature. 
 #### Client 
 We used Faker library to generate locations (latitude and longtitude) on the client side. 
 Then client is sending a request. To ensure that client got all data back we add end of line signal as a last frame, otherwise we repeate request. Default number of repeats (REQUEST_RETRIES) is set to 3, however, can be easily changed. If message is successfully received, then we send acknowledgement signal back to the server to overcome possible crash in the queue problem.   

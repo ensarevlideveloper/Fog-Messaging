@@ -9,7 +9,8 @@ from faker import Faker
 from faker.providers import geo
 
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
-#ACK
+
+#ACK signal
 SIGNAL_ACK = b"\x04" #Signals Acknowledgement
 
 #EOL
