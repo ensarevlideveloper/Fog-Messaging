@@ -1,3 +1,4 @@
+from random import randint
 import itertools
 import logging
 import sys
@@ -10,7 +11,14 @@ from faker.providers import geo
 
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
 
-#ACK signal
+#Test-Mode
+test_mode = False
+if len(sys.argv) > 1:
+    if (sys.argv[1] == '1'):
+        test_mode = True
+        logging.info("Test mode active...")
+
+#ACK
 SIGNAL_ACK = b"\x04" #Signals Acknowledgement
 
 #EOL
@@ -32,20 +40,33 @@ fake.add_provider(geo)
 logging.info("Connecting to Server…")
 client = context.socket(zmq.REQ)
 client.connect(SERVER_ENDPOINT)
+cycles = 0
 
 for sequence in itertools.count():
     #Create
     location = str(fake.latitude())+','+str(fake.longitude())
     logging.info("Location is (%s)", location)
     request = location.encode()
-    logging.info("Sending (%s)", request)
+    logging.info("Sending location")
     client.send(request)
+
+    if (test_mode == True):
+        # Simulate various problems, after a few cycles
+        cycles += 1
+        if cycles > 3 and randint(0, 5) == 0:
+            logging.info("I: Simulating a crash")
+            break
+        if cycles > 3 and randint(0, 5) == 0:
+            logging.info("I: Simulating CPU overload")
+            time.sleep(5)
+
+
      
     retries_left = REQUEST_RETRIES
     while True:
         if (client.poll(REQUEST_TIMEOUT) & zmq.POLLIN) != 0:
             reply = client.recv_multipart()
-            logging.info("Server replied (%s)", reply)
+            logging.info("Server replied")
             if reply[0] == request and reply[-1] == SIGNAL_EOL:
                 logging.info("Temperature (%s) for location (%s)", reply[-2].decode(), reply[0].decode())
                 retries_left = REQUEST_RETRIES
@@ -70,5 +91,5 @@ for sequence in itertools.count():
         # Create new connection
         client = context.socket(zmq.REQ)
         client.connect(SERVER_ENDPOINT)
-        logging.info("Resending (%s)", request)
+        logging.info("Resending location")
         client.send(request)

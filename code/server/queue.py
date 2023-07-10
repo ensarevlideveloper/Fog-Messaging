@@ -1,5 +1,6 @@
 from collections import OrderedDict
 import time
+import logging
 
 import zmq
 
@@ -10,6 +11,8 @@ HEARTBEAT_INTERVAL = 1.0   # Seconds
 PPP_READY = b"\x01"      # Signals worker is ready
 PPP_HEARTBEAT = b"\x02"  # Signals worker heartbeat
 SIGNAL_ACK = b"\x04" #Signals Acknowledgement
+
+logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
 
 
 class Worker(object):
@@ -33,7 +36,7 @@ class WorkerQueue(object):
             if t > worker.expiry:  # Worker expired
                 expired.append(address)
         for address in expired:
-            print("W: Idle worker expired: %s" % address)
+            logging.info("W: Idle worker expired: %s" % address)
             self.queue.pop(address, None)
 
     def next(self):
@@ -75,15 +78,15 @@ while True:
         address = frames[0]
         workers.ready(Worker(address))
 
-        print("Received from server:" + str(frames))
+        logging.info("Received from server:" + str(frames[0].decode()))
 
         # Validate control message, or return reply to client
         msg = frames[1:]
         if len(msg) == 1:
             if msg[0] not in (PPP_READY, PPP_HEARTBEAT):
-                print("E: Invalid message from worker: %s" % msg)
+                logging.info("E: Invalid message from worker: %s", msg)
         else:
-            print("Sending to client:" + str(frames))
+            logging.info("Sending to client:" + str(frames[0]))
             frontend.send_multipart(msg)
 
         # Send heartbeats to idle workers if it's time
@@ -94,14 +97,14 @@ while True:
             heartbeat_at = time.time() + HEARTBEAT_INTERVAL
     if socks.get(frontend) == zmq.POLLIN:
         frames = frontend.recv_multipart()
-        print("Received from client:"+str(frames))
+        logging.info("Received from client")
         if not frames:
             break
         if frames[-2] == SIGNAL_ACK:
             frontend.send_multipart(frames)
 
         frames.insert(0, workers.next())
-        print("Sending to worker:"+str(frames))
+        logging.info("Sending to worker:"+str(frames[0].decode()))
         backend.send_multipart(frames)
 
 
