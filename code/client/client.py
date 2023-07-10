@@ -1,3 +1,4 @@
+from random import randint
 import itertools
 import logging
 import sys
@@ -9,6 +10,14 @@ from faker import Faker
 from faker.providers import geo
 
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
+
+#Test-Mode
+test_mode = False
+if len(sys.argv) > 1:
+    if (sys.argv[1] == '1'):
+        test_mode = True
+        print("activated test mode")
+
 #ACK
 SIGNAL_ACK = b"\x04" #Signals Acknowledgement
 
@@ -31,6 +40,7 @@ fake.add_provider(geo)
 logging.info("Connecting to Server…")
 client = context.socket(zmq.REQ)
 client.connect(SERVER_ENDPOINT)
+cycles = 0
 
 for sequence in itertools.count():
     #Create
@@ -39,6 +49,18 @@ for sequence in itertools.count():
     request = location.encode()
     logging.info("Sending (%s)", request)
     client.send(request)
+
+    if (test_mode == True):
+        # Simulate various problems, after a few cycles
+        cycles += 1
+        if cycles > 3 and randint(0, 5) == 0:
+            print("I: Simulating a crash")
+            break
+        if cycles > 3 and randint(0, 5) == 0:
+            print("I: Simulating CPU overload")
+            time.sleep(5)
+
+
      
     retries_left = REQUEST_RETRIES
     while True:

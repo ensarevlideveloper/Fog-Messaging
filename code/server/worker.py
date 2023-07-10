@@ -1,6 +1,7 @@
 from random import randint
 import time
 import logging
+import sys
 
 import zmq
 
@@ -10,12 +11,20 @@ from faker import Faker
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
 
 
+#Test-Mode
+test_mode = False
+
+if len(sys.argv) > 1:
+    if (sys.argv[1] == '1'):
+        test_mode = True
+        print("activated test mode")
+
 HEARTBEAT_LIVENESS = 3
 HEARTBEAT_INTERVAL = 1
 INTERVAL_INIT = 1
 INTERVAL_MAX = 32
 ACK_RETRIES = 3
-ACK_TIMEOUT = 2500
+ACK_TIMEOUT = 5
 
 #  Paranoid Pirate Protocol constants
 PPP_READY = b"\x01"      # Signals worker is ready
@@ -57,7 +66,8 @@ while True:
     print(time.time())
     for request_addrs in not_confirmed_requests:
         (retries, old_timestamp, frames) = not_confirmed_requests[request_addrs]
-        if (time.time() - old_timestamp > ACK_TIMEOUT) and retries < ACK_RETRIES:
+        print("Checking not confirmed reequest:("+str(retries)+","+request_addrs+","+str(time.time() - old_timestamp)+")")
+        if (time.time() - old_timestamp > ACK_TIMEOUT) and (retries < ACK_RETRIES):
             logging.info("Retrying reply for (%s), (%s)d time", request_addrs, str(retries))
             not_confirmed_requests[request_addrs] = (retries + 1, time.time(), frames)
             worker.send_multipart(frames)
@@ -72,16 +82,16 @@ while True:
             break # Interrupted
 
         if len(frames) == 3:
-            '''
-            # Simulate various problems, after a few cycles
-            cycles += 1
-            if cycles > 3 and randint(0, 5) == 0:
-                print("I: Simulating a crash")
-                break
-            if cycles > 3 and randint(0, 5) == 0:
-                print("I: Simulating CPU overload")
-                time.sleep(3)
-            '''
+            if (test_mode == True):
+                # Simulate various problems, after a few cycles
+                cycles += 1
+                if cycles > 3 and randint(0, 5) == 0:
+                    print("I: Simulating a crash")
+                    break
+                if cycles > 3 and randint(0, 5) == 0:
+                    print("I: Simulating CPU overload")
+                    time.sleep(5)
+            
             address = str(frames[-1].decode())
             logging.info("Client requests temperature for location (%s)", address)
             temperature = fake.random_int(min=-30, max=55)
@@ -121,3 +131,6 @@ while True:
         heartbeat_at = time.time() + HEARTBEAT_INTERVAL
         print("I: Worker heartbeat")
         worker.send(PPP_HEARTBEAT)
+
+
+    
