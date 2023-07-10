@@ -17,7 +17,7 @@ test_mode = False
 if len(sys.argv) > 1:
     if (sys.argv[1] == '1'):
         test_mode = True
-        print("activated test mode")
+        logging.info("Test mode active...")
 
 HEARTBEAT_LIVENESS = 3
 HEARTBEAT_INTERVAL = 1
@@ -61,12 +61,8 @@ not_confirmed_requests = {}
 while True:
     socks = dict(poller.poll(HEARTBEAT_INTERVAL * 1000))
 
-    # check in the queue that we don't have any not replied requests
-    print(not_confirmed_requests)
-    print(time.time())
     for request_addrs in not_confirmed_requests:
         (retries, old_timestamp, frames) = not_confirmed_requests[request_addrs]
-        print("Checking not confirmed reequest:("+str(retries)+","+request_addrs+","+str(time.time() - old_timestamp)+")")
         if (time.time() - old_timestamp > ACK_TIMEOUT) and (retries < ACK_RETRIES):
             logging.info("Retrying reply for (%s), (%s)d time", request_addrs, str(retries))
             not_confirmed_requests[request_addrs] = (retries + 1, time.time(), frames)
@@ -86,10 +82,10 @@ while True:
                 # Simulate various problems, after a few cycles
                 cycles += 1
                 if cycles > 3 and randint(0, 5) == 0:
-                    print("I: Simulating a crash")
+                    logging.info("I: Simulating a crash")
                     break
                 if cycles > 3 and randint(0, 5) == 0:
-                    print("I: Simulating CPU overload")
+                    logging.info("I: Simulating CPU overload")
                     time.sleep(5)
             
             address = str(frames[-1].decode())
@@ -102,22 +98,22 @@ while True:
             liveness = HEARTBEAT_LIVENESS
             time.sleep(1)  # Do some heavy work
         elif len(frames) == 1 and frames[0] == PPP_HEARTBEAT:
-            print("I: Queue heartbeat")
+            logging.info("I: Queue heartbeat")
             liveness = HEARTBEAT_LIVENESS
 
         elif frames[-2] == SIGNAL_ACK:
             address = frames[-1].decode()
-            print("ACK got for ", str(address))
+            logging.info("ACK got for ", str(address))
             not_confirmed_requests.pop(address)
 
         else:
-            print("E: Invalid message: %s" % frames)
+            logging.info("E: Invalid message: %s" % frames)
         interval = INTERVAL_INIT
     else:
         liveness -= 1
         if liveness == 0:
-            print("W: Heartbeat failure, can't reach queue")
-            print("W: Reconnecting in %0.2fs..." % interval)
+            logging.info("W: Heartbeat failure, can't reach queue")
+            logging.info("W: Reconnecting in %0.2fs..." % interval)
             time.sleep(interval)
 
             if interval < INTERVAL_MAX:
@@ -129,7 +125,7 @@ while True:
             liveness = HEARTBEAT_LIVENESS
     if time.time() > heartbeat_at:
         heartbeat_at = time.time() + HEARTBEAT_INTERVAL
-        print("I: Worker heartbeat")
+        logging.info("I: Worker heartbeat")
         worker.send(PPP_HEARTBEAT)
 
 

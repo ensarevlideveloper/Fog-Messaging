@@ -16,7 +16,7 @@ test_mode = False
 if len(sys.argv) > 1:
     if (sys.argv[1] == '1'):
         test_mode = True
-        print("activated test mode")
+        logging.info("Test mode active...")
 
 #ACK
 SIGNAL_ACK = b"\x04" #Signals Acknowledgement
@@ -47,17 +47,17 @@ for sequence in itertools.count():
     location = str(fake.latitude())+','+str(fake.longitude())
     logging.info("Location is (%s)", location)
     request = location.encode()
-    logging.info("Sending (%s)", request)
+    logging.info("Sending location")
     client.send(request)
 
     if (test_mode == True):
         # Simulate various problems, after a few cycles
         cycles += 1
         if cycles > 3 and randint(0, 5) == 0:
-            print("I: Simulating a crash")
+            logging.info("I: Simulating a crash")
             break
         if cycles > 3 and randint(0, 5) == 0:
-            print("I: Simulating CPU overload")
+            logging.info("I: Simulating CPU overload")
             time.sleep(5)
 
 
@@ -66,7 +66,7 @@ for sequence in itertools.count():
     while True:
         if (client.poll(REQUEST_TIMEOUT) & zmq.POLLIN) != 0:
             reply = client.recv_multipart()
-            logging.info("Server replied (%s)", reply)
+            logging.info("Server replied")
             if reply[0] == request and reply[-1] == SIGNAL_EOL:
                 logging.info("Temperature (%s) for location (%s)", reply[-2].decode(), reply[0].decode())
                 retries_left = REQUEST_RETRIES
@@ -91,5 +91,5 @@ for sequence in itertools.count():
         # Create new connection
         client = context.socket(zmq.REQ)
         client.connect(SERVER_ENDPOINT)
-        logging.info("Resending (%s)", request)
+        logging.info("Resending location")
         client.send(request)
