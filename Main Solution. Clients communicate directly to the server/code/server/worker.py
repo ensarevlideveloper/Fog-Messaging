@@ -61,10 +61,13 @@ not_confirmed_requests = {}
 while True:
     socks = dict(poller.poll(HEARTBEAT_INTERVAL * 1000))
 
+    # Resend reply if we don't get an acknowledgment
     for request_addrs in not_confirmed_requests:
         (retries, old_timestamp, frames) = not_confirmed_requests[request_addrs]
+         # Ckeck that number of retries' limit is still not reached and also that time to get ack is passed.
         if (time.time() - old_timestamp > ACK_TIMEOUT) and (retries < ACK_RETRIES):
             logging.info("Retrying reply for (%s), (%s)d time", request_addrs, str(retries))
+            # Update time and number of retries
             not_confirmed_requests[request_addrs] = (retries + 1, time.time(), frames)
             worker.send_multipart(frames)
 
@@ -73,6 +76,7 @@ while True:
         #  Get message
         #  - 3-part envelope + content -> request
         #  - 1-part HEARTBEAT -> heartbeat
+        #  - ACK signal -> remove from queue
         frames = worker.recv_multipart()
         if not frames:
             break # Interrupted
@@ -94,6 +98,7 @@ while True:
             frames.append(str(temperature).encode())
             frames.append(SIGNAL_EOL)
             worker.send_multipart(frames)
+            # Save that we have not got ack yet
             not_confirmed_requests[address] = (0, time.time(), frames)
             liveness = HEARTBEAT_LIVENESS
             time.sleep(1)  # Do some heavy work
@@ -104,6 +109,7 @@ while True:
         elif frames[-2] == SIGNAL_ACK:
             address = frames[-1].decode()
             logging.info("ACK got for: %s", address)
+            # Remove from the queue
             not_confirmed_requests.pop(address)
 
         else:
@@ -111,6 +117,7 @@ while True:
         interval = INTERVAL_INIT
     else:
         liveness -= 1
+        # Reconnect to the queue if it is not responding. Doubling timeout time
         if liveness == 0:
             logging.info("W: Heartbeat failure, can't reach queue")
             logging.info("W: Reconnecting in %0.2fs...", interval)

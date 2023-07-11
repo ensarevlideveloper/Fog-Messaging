@@ -28,6 +28,7 @@ SIGNAL_EOL = b"\x03"  # Signals END OF LINE
 REQUEST_TIMEOUT = 2500
 #Number of retries for a message
 REQUEST_RETRIES = 3
+#endpoint to send requests
 SERVER_ENDPOINT = "tcp://localhost:5555"
 
 context = zmq.Context()
@@ -71,10 +72,12 @@ for sequence in itertools.count():
                 logging.info("Temperature (%s) for location (%s)", reply[-2].decode(), reply[0].decode())
                 retries_left = REQUEST_RETRIES
 
+                # Send acknowledgment for the server
                 client.send_multipart([SIGNAL_ACK, reply[0]])
                 client.recv_multipart()
                 break
             else:
+                # Retry reply when message is got broken
                 logging.error("Malformed reply from server: %s", reply)
                 continue
 
