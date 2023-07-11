@@ -61,11 +61,11 @@ not_confirmed_requests = {}
 while True:
     socks = dict(poller.poll(HEARTBEAT_INTERVAL * 1000))
 
-    for request_addrs in not_confirmed_requests:
-        (retries, old_timestamp, frames) = not_confirmed_requests[request_addrs]
+    for index in not_confirmed_requests:
+        (retries, old_timestamp, frames) = not_confirmed_requests[index]
         if (time.time() - old_timestamp > ACK_TIMEOUT) and (retries < ACK_RETRIES):
-            logging.info("Retrying reply for (%s), (%s)d time", request_addrs, str(retries))
-            not_confirmed_requests[request_addrs] = (retries + 1, time.time(), frames)
+            logging.info("Retrying reply for (%s), (%s)d time", index, str(retries))
+            not_confirmed_requests[index] = (retries + 1, time.time(), frames)
             worker.send_multipart(frames)
 
     # Handle worker activity on backend
@@ -77,7 +77,7 @@ while True:
         if not frames:
             break # Interrupted
 
-        if len(frames) == 3:
+        if len(frames) == 4:
             if (test_mode == True):
                 # Simulate various problems, after a few cycles
                 cycles += 1
@@ -88,13 +88,13 @@ while True:
                     logging.info("I: Simulating CPU overload")
                     time.sleep(5)
             
-            address = str(frames[-1].decode())
-            logging.info("Client requests temperature for location (%s)", address)
+            location = str(frames[-2].decode())
+            logging.info("Client requests temperature for location (%s)", location)
             temperature = fake.random_int(min=-30, max=55)
             frames.append(str(temperature).encode())
             frames.append(SIGNAL_EOL)
             worker.send_multipart(frames)
-            not_confirmed_requests[address] = (0, time.time(), frames)
+            not_confirmed_requests[frames[-3]] = (0, time.time(), frames)
             liveness = HEARTBEAT_LIVENESS
             time.sleep(1)  # Do some heavy work
         elif len(frames) == 1 and frames[0] == PPP_HEARTBEAT:
