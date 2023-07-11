@@ -100,8 +100,8 @@ while True:
         logging.info("Received from client")
         if not frames:
             break
-        if frames[-2] == SIGNAL_ACK:
-            frontend.send_multipart(frames)
+        #if frames[-2] == SIGNAL_ACK:
+        #    frontend.send_multipart(frames)
 
         frames.insert(0, workers.next())
         logging.info("Sending to worker:"+str(frames[0].decode()))

@@ -77,9 +77,7 @@ class Client:
             if not self.q.full():
                 location = str(self.fake.latitude())+','+str(self.fake.longitude())
                 logging.info("(%s) Location is (%s)", threading.currentThread().getName(), location)
-                self.q.put(location.encode())
-                logging.debug('Putting ' + str(location)  
-                            + ' : ' + str(self.q.qsize()) + ' items in queue')
+                self.q.put(location)
                 time.sleep(randint(0, 10))
 
     def pollerThread(self):
@@ -89,34 +87,38 @@ class Client:
         self.client.connect(self.SERVER_ENDPOINT)
         while True:
             if not self.q.empty():
-                item = self.q.get()
-                logging.debug('Sending' + str(item.decode()) 
-                    + ' : ' + str(self.q.qsize()) + ' to server')
-                message = [str(self.dictionary_iterator).encode(), item, str(self.q_add_counter).encode()]
+                location = self.q.get()
+                logging.info('Sending' + location + ' to server')
+                message = [str(self.dictionary_iterator).encode(), str(location).encode(), self.SIGNAL_EOL]
                 self.client.send_multipart(message)
-                self.not_confirmed_requests[self.dictionary_iterator] = message
+                self.not_confirmed_requests[self.dictionary_iterator] = (self.dictionary_iterator, location, self.q_add_counter)
                 self.dictionary_iterator +=1
             if (self.client.poll(self.REQUEST_TIMEOUT) & zmq.POLLIN) != 0:
                 reply = self.client.recv_multipart()
                 logging.info("Got a reply from server")
-                if (reply[-1] == self.SIGNAL_EOL):
+                index_to_remove = []
+                if (len(reply) == 4 and reply[-1] == self.SIGNAL_EOL):
                     for i in self.not_confirmed_requests:
-                        (index, original_message, counter) = self.not_confirmed_requests[i]
-                        if ((reply[0] == str(index).encode()) and (reply[1] == original_message)):
-                            self.not_confirmed_requests.pop(index)
-                            logging.info("Temperature (%s) for location (%s)", reply[-2].decode(), reply[1].decode())
+                        (index, location, counter) = self.not_confirmed_requests[i]
+                        if ((reply[0] == str(index).encode()) and (reply[1] == str(location).encode())):
+                            index_to_remove.append(index)
+                            #self.not_confirmed_requests.pop(index)
+                            logging.info("Temperature (%s) for location (%s)", reply[2].decode(), reply[1].decode())
                             self.client.send_multipart([self.SIGNAL_ACK, reply[0]])
                         else:
-                            if (int(counter.decode()) > 0):
-                                self.not_confirmed_requests[i] = (index, original_message, str(int(counter.decode()) - 1).encode())
+                            if (counter > 0):
+                                self.not_confirmed_requests[i] = (index, location, counter - 1)
                             else:
                                 logging.info("Could not get an acknowledgement for message %d, adding back to queue", index)
-                                self.not_confirmed_requests.pop(index)
-                                self.put(original_message)
-                    break
+                                index_to_remove.append(index)
+                                #self.not_confirmed_requests.pop(index)
+                                self.q.put(location)
+                    for index in index_to_remove:
+                        self.not_confirmed_requests.pop(index)
+                    continue
                 else:
-                    logging.error("Malformed reply from server: %s", reply)
-                    break
+                    logging.info("Malformed reply from server: %s", reply)
+                    continue
 
             logging.warning("No response from server")
             # Socket is confused. Close and remove it.

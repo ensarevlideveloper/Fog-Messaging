@@ -77,7 +77,7 @@ while True:
         if not frames:
             break # Interrupted
 
-        if len(frames) == 4:
+        if len(frames) == 4 and frames[3] == SIGNAL_EOL:
             if (test_mode == True):
                 # Simulate various problems, after a few cycles
                 cycles += 1
@@ -88,24 +88,23 @@ while True:
                     logging.info("I: Simulating CPU overload")
                     time.sleep(5)
             
-            location = str(frames[-2].decode())
+            location = str(frames[2].decode())
             logging.info("Client requests temperature for location (%s)", location)
             temperature = fake.random_int(min=-30, max=55)
-            frames.append(str(temperature).encode())
+            frames[3] = str(temperature).encode()
             frames.append(SIGNAL_EOL)
             worker.send_multipart(frames)
-            not_confirmed_requests[frames[-3]] = (0, time.time(), frames)
+            not_confirmed_requests[int(frames[1].decode())] = (0, time.time(), frames)
             liveness = HEARTBEAT_LIVENESS
             time.sleep(1)  # Do some heavy work
         elif len(frames) == 1 and frames[0] == PPP_HEARTBEAT:
             logging.info("I: Queue heartbeat")
             liveness = HEARTBEAT_LIVENESS
 
-        elif frames[-2] == SIGNAL_ACK:
-            address = frames[-1].decode()
-            logging.info("ACK got for: %s", address)
-            not_confirmed_requests.pop(address)
-
+        elif frames[1] == SIGNAL_ACK:
+            index = int(frames[2].decode())
+            logging.info("ACK got for: %d", index)
+            not_confirmed_requests.pop(index)
         else:
             logging.info("E: Invalid message: %s", frames)
         interval = INTERVAL_INIT
